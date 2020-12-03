@@ -28,6 +28,15 @@ struct Point {
     y: usize
 }
 
+impl Point {
+    pub fn new(x: usize, y: usize) -> Point {
+        Point{
+            x,
+            y
+        }
+    }
+}
+
 fn usize_add(u: usize, i: i32) -> Option<usize> {
     if i.is_negative() {
         u.checked_sub(i.wrapping_abs() as u32 as usize)
@@ -82,10 +91,8 @@ impl Area {
 }
 
 
-fn calculate_number_of_trees(input: Vec<String>, offset_x: i32, offset_y: i32) -> usize {
-    let area= Area::new(input);
-
-    let mut p: Point = Point{x:0, y:0};
+fn calculate_number_of_trees(area: &Area, offset_x: i32, offset_y: i32) -> usize {
+    let mut p: Point = Point::new(0, 0);
     let mut tree_count: usize = 0;
 
     while !area.finished(&p) {
@@ -103,8 +110,22 @@ fn main() {
     println!("Hello, world!");
 
     let input: Vec<String> = get_input::<String>();
+    let area= Area::new(input);
 
-    let result = calculate_number_of_trees(input, 3, 1);
+    let offsets: Vec<Point> = vec![
+        Point::new(1, 1),
+        Point::new(3, 1),
+        Point::new(5, 1),
+        Point::new(7, 1),
+        Point::new(1, 2),
+    ];
+
+    let mut result: i64 = 1;
+
+    for offset in offsets {
+        let nr_of_trees = calculate_number_of_trees(&area, offset.x as i32, offset.y as i32);
+        result *= nr_of_trees as i64;
+    }
 
     println!("RESULT: {}", result);
 }
