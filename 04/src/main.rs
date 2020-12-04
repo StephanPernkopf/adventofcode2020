@@ -5,6 +5,7 @@ use std::{
     io::{self, BufRead},
 };
 use std::{fmt::Debug, fs::File};
+use regex::Regex;
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -24,6 +25,10 @@ where
         .unwrap()
         .map(|line| line.unwrap().parse::<T>().unwrap())
         .collect::<Vec<_>>()
+}
+
+trait Valid {
+    fn is_valid(&self) -> bool;
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
@@ -75,6 +80,56 @@ impl PassportField {
     }
 }
 
+fn is_height_valid(height: &str) -> bool {
+    // number + [in|cm] => len of at least 3
+    if height.len() < 3 {
+        return false;
+    }
+    let split_index = height.len() - 2;
+
+    let suffix = &height[split_index..];
+    let number = &height[..split_index];
+
+    match suffix {
+        "cm" => is_number_in_range(number, 150, 193),
+        "in" => is_number_in_range(number, 59, 76),
+        _ => false
+    }
+}
+
+fn is_number_in_range(number: &str, begin: u32, end: u32) -> bool {
+    let number = number.parse::<u32>();
+    if number.is_err() {
+        return false;
+    }
+
+    let number = number.unwrap();
+
+    number >= begin && number <= end
+}
+
+impl Valid for PassportField {
+    fn is_valid(&self) -> bool {
+        let field = self.field.as_str();
+        match &self.field_type {
+            FieldType::EyeColor => match field {
+                "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth" => true,
+                _ => false,
+            },
+            FieldType::Height => is_height_valid(field),
+            FieldType::PassportID => field.len() == 9 && field.parse::<u32>().is_ok(),
+            FieldType::CountryID => true,
+            FieldType::ExpirationYear => is_number_in_range(field, 2020, 2030),
+            FieldType::BirthYear => is_number_in_range(field, 1920, 2002),
+            FieldType::IssueYear => is_number_in_range(field, 2010, 2020),
+            FieldType::HairColor => {
+                let re = Regex::new("#[0-9a-f]{6}").unwrap();
+                re.is_match(field)
+            }
+        }
+    }
+}
+
 const NEEDED_FIELDS: &'static [FieldType] = &[
     FieldType::BirthYear,
     //FieldType::CountryID,
@@ -83,7 +138,7 @@ const NEEDED_FIELDS: &'static [FieldType] = &[
     FieldType::HairColor,
     FieldType::Height,
     FieldType::IssueYear,
-    FieldType::PassportID
+    FieldType::PassportID,
 ];
 
 struct Passport {
@@ -92,21 +147,28 @@ struct Passport {
 
 impl Passport {
     pub fn new(input_fields: Vec<PassportField>) -> Passport {
-        let mut fields: HashMap<FieldType, PassportField> = HashMap::with_capacity(input_fields.len());
+        let mut fields: HashMap<FieldType, PassportField> =
+            HashMap::with_capacity(input_fields.len());
 
         for f in input_fields {
             fields.insert(f.field_type, f);
         }
 
-        Passport {
-            fields,
-        }
+        Passport { fields }
     }
+}
 
-    pub fn is_valid(&self) -> bool {
+impl Valid for Passport {
+    fn is_valid(&self) -> bool {
         for key in NEEDED_FIELDS {
             if !self.fields.contains_key(key) {
-                return false
+                return false;
+            }
+        }
+
+        for field in self.fields.values() {
+            if !field.is_valid() {
+                return false;
             }
         }
 
@@ -146,8 +208,8 @@ fn parse_input(input: Vec<String>) -> Vec<Passport> {
 
 fn main() {
     let input = get_input::<String>("./input");
-
     let passports = parse_input(input);
+
 
     let result = passports.iter().filter(|p| p.is_valid()).count();
 
