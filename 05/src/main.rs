@@ -102,8 +102,12 @@ fn main() {
         .map(|boarding_pass| boarding_pass.chars().collect::<Vec<_>>())
         .collect::<Vec<_>>();
 
-    let result = input.iter().map(calc_seat_index).map(calc_seat_id).collect::<Vec<_>>();
-    let result = result.iter().max().unwrap();
+    let mut result = input.iter().map(calc_seat_index).map(calc_seat_id).collect::<Vec<_>>();
+    result.sort();
 
-    println!("Result: {}", result);
+    for i in 0..result.len() - 1 {
+        if result[i] + 1 != result[i + 1] {
+            println!("{}, ", result[i] + 1);
+        }
+    }
 }
