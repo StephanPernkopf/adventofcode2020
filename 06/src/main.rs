@@ -1,4 +1,4 @@
-use std::iter::FromIterator;
+use std::{collections::HashMap, iter::FromIterator};
 use std::path::Path;
 use std::str::FromStr;
 use std::{
@@ -29,35 +29,50 @@ where
 
 #[derive(Debug)]
 struct GroupAnswer {
-    answers: HashSet<char>,
+    nr_of_persons: usize,
+    answers: HashMap<char, usize>,
 }
 
 impl GroupAnswer {
-    fn new(answers_with_duplicates: Vec<char>) -> GroupAnswer {
+    fn new(all_answers: Vec<char>, nr_of_persons: usize) -> GroupAnswer {
+        let mut answers = HashMap::new();
+        for c in all_answers {
+            if !answers.contains_key(&c) {
+                answers.insert(c, 0);
+            }
+
+            *answers.get_mut(&c).unwrap() += 1;
+        }
+
         GroupAnswer {
-            answers: HashSet::from_iter(answers_with_duplicates.into_iter()),
+            nr_of_persons,
+            answers
         }
     }
 
-    fn get_total_answers(&self) -> usize {
-        self.answers.len()
+    fn get_mutual_answers(&self) -> usize {
+        self.answers.values().filter(|a| **a == self.nr_of_persons).count()
     }
 }
 
 fn parse_input(input: Vec<String>) -> Vec<GroupAnswer> {
     let mut group_answers: Vec<GroupAnswer> = Vec::new();
     let mut curr_answers: Vec<char> = Vec::new();
+    let mut curr_nr_of_persons: usize = 0;
 
     for line in input {
         if line.is_empty() {
-            group_answers.push(GroupAnswer::new(curr_answers));
+            group_answers.push(GroupAnswer::new(curr_answers, curr_nr_of_persons));
             curr_answers = Vec::new();
+            curr_nr_of_persons = 0;
+            continue;
         }
         curr_answers.extend(line.chars());
+        curr_nr_of_persons += 1;
     }
 
     if !curr_answers.is_empty() {
-        group_answers.push(GroupAnswer::new(curr_answers));
+        group_answers.push(GroupAnswer::new(curr_answers, curr_nr_of_persons));
     }
 
     group_answers
@@ -69,7 +84,7 @@ fn main() {
 
     let result: usize = group_answers
         .iter()
-        .map(GroupAnswer::get_total_answers)
+        .map(GroupAnswer::get_mutual_answers)
         .sum();
 
     println!("Result: {}", result);
