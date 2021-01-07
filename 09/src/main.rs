@@ -1,6 +1,4 @@
 mod lib;
-use itertools::Itertools;
-
 
 const PREAMBLE: usize = 25;
 
@@ -39,11 +37,18 @@ where
     None
 }
 
-fn find_contiguous_sum(numbers: Vec<u64>, sum: u64) -> Vec<u64> {
-    for i in 0..numbers.len() {
-        let curr_combination = numbers.iter().combinations(i);
+fn find_contiguous_sum(numbers: Vec<u64>, sum: u64) -> Option<Vec<u64>> {
+    for i in 0..(numbers.len() - 1) {
+        for j in i + 1..numbers.len() {
+            let curr_combination = &numbers[i..j];
+
+            if curr_combination.iter().sum::<u64>() == sum {
+                return Some(curr_combination.into_iter().copied().collect());
+            }
+        }
     }
-    todo!()
+
+    None
 }
 
 fn find_encryption_weakness<I>(iter: &mut I, first_non_summable: u64) -> Option<u64>
@@ -59,20 +64,21 @@ where
         numbers.push(num);
     }
 
-    let contiguous_sum_numbers = find_contiguous_sum(numbers, first_non_summable);
-    let min = contiguous_sum_numbers.iter().min().unwrap();
-    let max = contiguous_sum_numbers.iter().min().unwrap();
+    let contiguous_sum_numbers = find_contiguous_sum(numbers, first_non_summable).unwrap();
+    let min = contiguous_sum_numbers.iter().copied().min().unwrap();
+    let max = contiguous_sum_numbers.iter().copied().max().unwrap();
 
     Some(min + max)
 }
 
 fn main() {
-    let input: Vec<u64> = lib::get_input("input");
+    let file = "input";
+    let input: Vec<u64> = lib::get_input(file);
 
     let first_non_summable = get_first_non_summable(&mut input.into_iter());
 
     // sorry too lazy
-    let input: Vec<u64> = lib::get_input("input");
+    let input: Vec<u64> = lib::get_input(file);
 
     let result = find_encryption_weakness(&mut input.into_iter(), first_non_summable.unwrap());
 
