@@ -118,7 +118,7 @@ fn get_acc_for_correct_instruction_set(instructions: Vec<Instruction>) -> Option
 }
 
 fn main() {
-    let input: Vec<String> = lib::get_input("input");
+    let input: Vec<String> = lib::get_input("input.test");
     let instructions = parse_input(input);
 
     let result = get_acc_for_correct_instruction_set(instructions);
