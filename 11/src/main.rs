@@ -64,7 +64,7 @@ fn get_neighbors(seats: &SeatLayout, row: usize, column: usize) -> Vec<Tile> {
 
 const BASE_OFFSETS: [(i32, i32); 8] = [
     (-1, -1), // top left
-    (0, -1),  // top
+    (-1, 0),  // top
     (-1, 1),  // top right
     (0, 1),   // right
     (1, 1),   // bottom right
@@ -73,9 +73,9 @@ const BASE_OFFSETS: [(i32, i32); 8] = [
     (0, -1),  // left
 ];
 
-fn is_out_of_bounds(seats: &SeatLayout, offset: &(i32, i32)) -> bool {
-    let row = offset.0;
-    let col = offset.1;
+fn is_out_of_bounds(seats: &SeatLayout, offset: &(i32, i32), row: usize, column: usize) -> bool {
+    let row = row as i32 + offset.0;
+    let col = column as i32 + offset.1;
 
     row < 0 || row >= seats.len() as i32 || col < 0 || col >= seats[0].len() as i32
 }
@@ -90,38 +90,49 @@ fn get_neighbors_part_2(seats: &SeatLayout, row: usize, column: usize) -> Vec<Ti
         .copied()
         .map(|t| Some(t))
         .collect::<Vec<_>>();
-    let mut result: Vec<Tile> = Vec::new();
+    let mut result: Vec<(usize, Tile)> = Vec::new();
 
     while offsets.iter().any(|o| o.is_some()) {
-        for (index, mut offset) in offsets.iter().enumerate() {
-            if let Some(o) = offset {
-                // eliminate out of bounds offset
-                if is_out_of_bounds(seats, o) {
-                    offset = &None;
-                    continue;
-                }
+        let mut new_offsets: Vec<Option<(i32, i32)>> = Vec::new();
 
-                // test offset
-                let curr_row = row + o.0 as usize;
-                let curr_col = column + o.1 as usize;
-                let curr_tile = seats[curr_row][curr_col];
-
-                match curr_tile {
-                    Tile::EmptySeat | Tile::OccupiedSeat => {
-                        result.push(curr_tile);
-                        offset = &None;
+        for (index, offset) in offsets.iter().enumerate() {
+            match offset {
+                None => new_offsets.push(None),
+                Some(o) => {
+                    // eliminate out of bounds offset
+                    if is_out_of_bounds(seats, o, row, column) {
+                        result.push((index, Tile::Floor));
+                        new_offsets.push(None);
                         continue;
                     }
-                    Tile::Floor => {}
-                }
 
-                // increment offset
-                offset = &Some(add_tuples(o, &BASE_OFFSETS[index]));
+                    // test offset
+                    let curr_row = (row as i32 + o.0) as usize;
+                    let curr_col = (column as i32 + o.1) as usize;
+                    let curr_tile = seats[curr_row][curr_col];
+
+                    match curr_tile {
+                        Tile::EmptySeat | Tile::OccupiedSeat => {
+                            result.push((index, curr_tile));
+                            new_offsets.push(None);
+                            continue;
+                        }
+                        Tile::Floor => {}
+                    }
+
+                    // increment offset
+                    let new_offset = add_tuples(o, &BASE_OFFSETS[index]);
+                    new_offsets.push(Some(new_offset));
+                }
             }
         }
+        offsets.clear();
+        offsets = new_offsets;
     }
 
-    result
+    result.sort_unstable_by_key(|(index, _)| *index);
+
+    result.into_iter().map(|(_, tile)| tile).collect::<Vec<_>>()
 }
 
 fn should_swap(seats: &SeatLayout, row: usize, column: usize) -> bool {
