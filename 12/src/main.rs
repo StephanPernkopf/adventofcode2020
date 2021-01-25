@@ -84,7 +84,7 @@ impl From<String> for Command {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Coordinate {
     pub x: i32, // West -> 0 -> East
     pub y: i32, // North -> 0 -> South
@@ -114,7 +114,7 @@ impl Coordinate {
         Coordinate { x, y }
     }
 
-    pub fn add(&self, dir: &Direction, units: i32) -> Coordinate {
+    pub fn add_into_direction(&self, dir: &Direction, units: i32) -> Coordinate {
         match dir {
             Direction::North => Coordinate::new(self.x, self.y - units),
             Direction::East => Coordinate::new(self.x + units, self.y),
@@ -122,31 +122,86 @@ impl Coordinate {
             Direction::West => Coordinate::new(self.x - units, self.y),
         }
     }
+
+    pub fn multiply(&self, waypoint: &Coordinate, times: u16) -> Coordinate {
+        let x = waypoint.x * times as i32;
+        let y = waypoint.y * times as i32;
+        Coordinate::new(self.x + x, self.y + y)
+    }
 }
 
 fn manhattan_dist(lhs: &Coordinate, rhs: &Coordinate) -> i32 {
     (lhs.x - rhs.x).abs() + (lhs.y - rhs.y).abs()
 }
 
-fn get_last_location(commands: &Vec<Command>, starting_location: &Coordinate) -> Coordinate {
+fn _get_last_location(commands: &Vec<Command>, starting_location: &Coordinate) -> Coordinate {
     let mut curr_orientation = Direction::East;
     let mut curr_location = Coordinate::new(starting_location.x, starting_location.y);
 
     for command in commands {
         match &command.instruction {
             Instruction::Direction(dir) => {
-                curr_location = curr_location.add(&dir, command.units as i32);
+                curr_location = curr_location.add_into_direction(&dir, command.units as i32);
             }
             Instruction::Turn(turn) => {
                 curr_orientation = curr_orientation.with_turn(command.units, turn);
             }
             Instruction::Forward => {
-                curr_location = curr_location.add(&curr_orientation, command.units as i32);
+                curr_location =
+                    curr_location.add_into_direction(&curr_orientation, command.units as i32);
             }
         }
     }
 
     curr_location
+}
+
+fn convert_to_right_rotation_degrees(degrees: u16) -> u16 {
+    let degrees = degrees % 360;
+    360 - degrees
+}
+
+fn rotate_clockwise_around_origin(point: &Coordinate, degrees: u16) -> Coordinate {
+    let degrees = degrees % 360;
+
+    match degrees {
+        0 => point.clone(),
+        90 => Coordinate::new(-point.y, point.x),
+        180 => Coordinate::new(-point.x, -point.y),
+        270 => Coordinate::new(point.y, -point.x),
+        _ => panic!("Turn degrees must be multiple of 90")
+    }
+}
+
+fn get_last_location_with_waypoint(
+    commands: &Vec<Command>,
+    ship_starting_location: &Coordinate,
+    waypoint_starting_location: &Coordinate,
+) -> Coordinate {
+    let mut waypoint_location = waypoint_starting_location.clone();
+    let mut ship_location = ship_starting_location.clone();
+
+    for command in commands {
+        match &command.instruction {
+            Instruction::Direction(dir) => {
+                waypoint_location =
+                    waypoint_location.add_into_direction(&dir, command.units as i32);
+            }
+            Instruction::Turn(turn) => {
+                let degrees = match turn {
+                    Turn::Left => convert_to_right_rotation_degrees(command.units),
+                    Turn::Right => command.units,
+                };
+
+                waypoint_location = rotate_clockwise_around_origin(&waypoint_location, degrees);
+            }
+            Instruction::Forward => {
+                ship_location = ship_location.multiply(&waypoint_location, command.units);
+            }
+        }
+    }
+
+    ship_location
 }
 
 fn main() {
@@ -155,7 +210,13 @@ fn main() {
     let parsed_input = input.into_iter().map(Command::from).collect::<Vec<_>>();
 
     let starting_location = Coordinate::new(0, 0);
-    let last_location = get_last_location(&parsed_input, &starting_location);
+    let waypoint_starting_location = Coordinate::new(10, -1);
+    // let last_location = get_last_location(&parsed_input, &starting_location);
+    let last_location = get_last_location_with_waypoint(
+        &parsed_input,
+        &starting_location,
+        &waypoint_starting_location,
+    );
 
     let manhattan_dist = manhattan_dist(&starting_location, &last_location);
 
@@ -277,9 +338,21 @@ mod tests {
     #[test]
     fn test_coordinate_add() {
         let c = Coordinate::new(0, 0);
-        assert_eq!(Coordinate::new(1, 0), c.add(&Direction::East, 1));
-        assert_eq!(Coordinate::new(0, 1), c.add(&Direction::South, 1));
-        assert_eq!(Coordinate::new(0, -1), c.add(&Direction::North, 1));
-        assert_eq!(Coordinate::new(-1, 0), c.add(&Direction::West, 1));
+        assert_eq!(
+            Coordinate::new(1, 0),
+            c.add_into_direction(&Direction::East, 1)
+        );
+        assert_eq!(
+            Coordinate::new(0, 1),
+            c.add_into_direction(&Direction::South, 1)
+        );
+        assert_eq!(
+            Coordinate::new(0, -1),
+            c.add_into_direction(&Direction::North, 1)
+        );
+        assert_eq!(
+            Coordinate::new(-1, 0),
+            c.add_into_direction(&Direction::West, 1)
+        );
     }
 }
